@@ -1,9 +1,12 @@
+#ifdef CORE_CM4
+
+
 void setup_m4() {
-  RPC.begin();
-  Serial.begin(115200);
+  
 }
 
 void loop_m4() {
+  /*
   digitalWrite(LED_BUILTIN, LOW);
   delay(1000);
   digitalWrite(LED_BUILTIN, HIGH);
@@ -19,4 +22,6 @@ void loop_m4() {
   // Exercise: if you are not interested in the result of the operation, what operation would you invoke?
   auto result = RPC.call("remoteAdd", a, b).as<int>();    
   RPC.println("M4: Result is " + String(a) + " + " + String(b) + " = " + String(result));
+  */
 }
+#endif
