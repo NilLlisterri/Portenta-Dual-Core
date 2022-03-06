@@ -16,9 +16,9 @@ seed = 4321
 random.seed(seed)
 np.random.seed(seed)
 
-samples_per_device = 120 # Amount of samples of each word to send to each device
-batch_size = 120 # Must be even, hsa to be split into 2 types of samples
-experiment = 'iid' # 'iid', 'no-iid', 'train-test', None
+samples_per_device = 30 # Amount of samples of each word to send to each device
+batch_size = 30 # Must be even, hsa to be split into 2 types of samples
+experiment = None # 'iid', 'no-iid', 'train-test', None
 use_threads = True
 test_samples_amount = 40
 
@@ -172,6 +172,8 @@ def sendSample(device, samplePath, num_button, deviceIndex, only_forward = False
 
         for i, value in enumerate(data['payload']['values']):
             device.write(struct.pack('h', value))
+            print(i)
+            print(device.readline())
 
         conf = device.readline().decode()
         # print(f"[{device.port}] Sample received confirmation:", conf)
@@ -505,11 +507,12 @@ if experiment != None:
     for device in devices:
         device.close()
 
-# Listen their updates
-#for i, d in enumerate(devices):
-#    thread = threading.Thread(target=listenDevice, args=(d, i))
-#    thread.daemon = True
-#    thread.start()
+else:
+    # Listen their updates
+    for i, d in enumerate(devices):
+        thread = threading.Thread(target=listenDevice, args=(d, i))
+        thread.daemon = True
+        thread.start()
 
 
 plt.ion()

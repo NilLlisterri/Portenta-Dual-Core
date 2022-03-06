@@ -3,7 +3,7 @@
 
 
 /******************************************************************
- * Network Configuration - customized per network 
+   Network Configuration - customized per network
  ******************************************************************/
 
 static const int PatternCount = 3;
@@ -13,39 +13,42 @@ static const int OutputNodes = 3;
 static const float InitialWeightMax = 0.5;
 
 class NeuralNetwork {
-    public:
+  public:
 
-        void initialize(float LearningRate, float Momentum, int DropoutRate);
-        // ~NeuralNetwork();
+    NeuralNetwork();
+    void initWeights();
 
-        // void initWeights();
-        float forward(const float Input[], const float Target[]);
-        float backward(float Input[], const float Target[]); // Input will be changed!!
+    void initialize(float LearningRate, float Momentum, int DropoutRate);
+    // ~NeuralNetwork();
 
-        float* get_output();
+    // void initWeights();
+    float forward(volatile float Input[], const float Target[]);
+    float backward(volatile float Input[], const float Target[]); // Input will be changed!!
 
-        float* get_HiddenWeights();
-        float* get_OutputWeights();
+    float* get_output();
 
-        float get_error();
-        // float asd[500] = {};
-        
-    private:
+    float* get_HiddenWeights();
+    float* get_OutputWeights();
 
-        float Hidden[HiddenNodes] = {};
-        float Output[OutputNodes] = {};
-        float HiddenWeights[(InputNodes+1) * HiddenNodes] = {};
-        float OutputWeights[(HiddenNodes+1) * OutputNodes] = {};
-        float HiddenDelta[HiddenNodes] = {};
-        float OutputDelta[OutputNodes] = {};
-        float ChangeHiddenWeights[(InputNodes+1) * HiddenNodes] = {};
-        float ChangeOutputWeights[(HiddenNodes+1) * OutputNodes] = {};
+    float get_error();
+    // float asd[500] = {};
 
-        float Error;
-        float LearningRate = 0.3;
-        float Momentum = 0.9;
-        // From 0 to 100, the percentage of input features that will be set to 0
-        int DropoutRate = 0;
+  private:
+
+    float Hidden[HiddenNodes] = {};
+    float Output[OutputNodes] = {};
+    float HiddenWeights[(InputNodes + 1) * HiddenNodes] = {};
+    float OutputWeights[(HiddenNodes + 1) * OutputNodes] = {};
+    float HiddenDelta[HiddenNodes] = {};
+    float OutputDelta[OutputNodes] = {};
+    float ChangeHiddenWeights[(InputNodes + 1) * HiddenNodes] = {};
+    float ChangeOutputWeights[(HiddenNodes + 1) * OutputNodes] = {};
+
+    float Error;
+    float LearningRate = 0.3;
+    float Momentum = 0.9;
+    // From 0 to 100, the percentage of input features that will be set to 0
+    int DropoutRate = 0;
 };
 
 

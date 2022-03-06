@@ -4,13 +4,39 @@
 #include "neural_network.h"
 #include <math.h>
 
+NeuralNetwork::NeuralNetwork() {
+  this->initWeights();
+}
+
+
+/**
+ * Intialize weights to random numebrs
+ */
+void NeuralNetwork::initWeights() {
+    for(int i = 0 ; i < HiddenNodes ; i++ ) {    
+        for(int j = 0 ; j <= InputNodes ; j++ ) { 
+            ChangeHiddenWeights[j*HiddenNodes + i] = 0.0 ;
+            float Rando = float(random(100))/100;
+            HiddenWeights[j*HiddenNodes + i] = 2.0 * ( Rando - 0.5 ) * InitialWeightMax ;
+        }
+    }
+    for(int i = 0 ; i < OutputNodes ; i ++ ) {    
+        for(int j = 0 ; j <= HiddenNodes ; j++ ) {
+            ChangeOutputWeights[j*OutputNodes + i] = 0.0 ;  
+            float Rando = float(random(100))/100;        
+            OutputWeights[j*OutputNodes + i] = 2.0 * ( Rando - 0.5 ) * InitialWeightMax ;
+        }
+    }
+}
+
+
 void NeuralNetwork::initialize(float LearningRate, float Momentum, int DropoutRate) {
     this->LearningRate = LearningRate;
     this->Momentum = Momentum;
     this->DropoutRate = DropoutRate;
 }
 
-float NeuralNetwork::forward(const float Input[], const float Target[]){
+float NeuralNetwork::forward(volatile float Input[], const float Target[]){
     float error = 0;
 
     /******************************************************************
@@ -40,7 +66,7 @@ float NeuralNetwork::forward(const float Input[], const float Target[]){
 }
 
 // Input will be changed!!
-float NeuralNetwork::backward(float Input[], const float Target[]){
+float NeuralNetwork::backward(volatile float Input[], const float Target[]){
     float error = 0;
 
     for (int i = 0; i < InputNodes; i++) {

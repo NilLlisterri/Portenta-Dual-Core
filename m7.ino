@@ -1,19 +1,8 @@
 #ifdef CORE_CM7
 
-#define EIDSP_QUANTIZE_FILTERBANK   0
-#include <training_kws_inference.h>
 #include "neural_network.h"
 
 
-/** Audio buffers, pointers and selectors */
-typedef struct {
-  int16_t buffer[EI_CLASSIFIER_RAW_SAMPLE_COUNT];
-  uint8_t buf_ready;
-  uint32_t buf_count;
-  uint32_t n_samples;
-} inference_t;
-
-static inference_t inference;
 static bool debug_nn = false; // Set this to true to see e.g. features generated from the raw signal
 
 
@@ -22,7 +11,7 @@ const uint8_t button_2 = 3;
 const uint8_t button_3 = 4;
 const uint8_t button_4 = 5;
 //uint8_t num_button = 0; // 0 represents none
-bool button_pressed = false;
+
 
 // Defaults: 0.3, 0.9
 static NeuralNetwork myNetwork;
@@ -31,13 +20,14 @@ const float threshold = 0.6;
 uint16_t num_epochs = 0;
 
 void setup_m7() {
-  // RPC.bind("remoteAdd", addOnM7);
+  Serial.println("Setup M7 started");
+  RPC.bind("train", train);
 
   pinMode(button_1, INPUT);
   pinMode(button_2, INPUT);
   pinMode(button_3, INPUT);
   pinMode(button_4, INPUT);
-  pinMode(LED_BUILTIN, OUTPUT);
+  
   pinMode(LEDR, OUTPUT);
   pinMode(LEDG, OUTPUT);
   pinMode(LEDB, OUTPUT);
@@ -47,12 +37,7 @@ void setup_m7() {
 
   digitalWrite(LED_BUILTIN, HIGH);
 
-  if (microphone_setup(EI_CLASSIFIER_RAW_SAMPLE_COUNT) == false) {
-    ei_printf("ERR: Failed to setup audio sampling\r\n");
-    return;
-  }
-
-  init_network_model();
+  // init_network_model();
   digitalWrite(LED_BUILTIN, LOW);
 
   num_epochs = 0;
@@ -64,97 +49,102 @@ void loop_m7() {
   digitalWrite(LEDB, HIGH);           // OFF
   digitalWrite(LED_BUILTIN, HIGH);    // ON
 
+  Serial.println("Looping M7");
+  delay(200);
+  // Print the m4 messages
+  String buffer = "";
+  while (RPC.available()) {
+    buffer += (char)RPC.read(); // Fill the buffer with characters
+  }
+  if (buffer.length() > 0) {
+    Serial.print(buffer);
+  }
+
   uint8_t num_button = 0;
 
   bool only_forward = false;
 
-  if (button_pressed == true) {
-    Serial.println("Recording...");
-    bool m = microphone_inference_record();
-    if (!m) {
-      Serial.println("ERR: Failed to record audio...");
-      return;
-    }
-    Serial.println("Recording done");
+  int read = Serial.read();
+  if (read == '>') { // s -> FEDERATED LEARNING
+    /***********************
+       Federate Learning
+     ***********************/
+    Serial.write('<');
+    digitalWrite(LED_BUILTIN, HIGH);    // ON
+    delay(1000);
+    if (Serial.read() == 's') {
+      Serial.println("start");
+      Serial.println(num_epochs);
+      num_epochs = 0;
 
-    train(num_button, only_forward);
+      /*******
+         Sending model
+       *******/
 
-    button_pressed = false;
-  } else {
-    int read = Serial.read();
-    if (read == '>') { // s -> FEDERATED LEARNING
-      /***********************
-         Federate Learning
-       ***********************/
-      Serial.write('<');
-      digitalWrite(LED_BUILTIN, HIGH);    // ON
-      delay(1000);
-      if (Serial.read() == 's') {
-        Serial.println("start");
-        Serial.println(num_epochs);
-        num_epochs = 0;
+      // Sending hidden layer
+      char* myHiddenWeights = (char*) myNetwork.get_HiddenWeights();
+      for (uint16_t i = 0; i < (InputNodes + 1) * HiddenNodes; ++i) {
+        Serial.write(myHiddenWeights + i * sizeof(float), sizeof(float));
+      }
 
-        /*******
-           Sending model
-         *******/
+      // Sending output layer
+      char* myOutputWeights = (char*) myNetwork.get_OutputWeights();
+      for (uint16_t i = 0; i < (HiddenNodes + 1) * OutputNodes; ++i) {
+        Serial.write(myOutputWeights + i * sizeof(float), sizeof(float));
+      }
 
-        // Sending hidden layer
-        char* myHiddenWeights = (char*) myNetwork.get_HiddenWeights();
-        for (uint16_t i = 0; i < (InputNodes + 1) * HiddenNodes; ++i) {
-          Serial.write(myHiddenWeights + i * sizeof(float), sizeof(float));
-        }
-
-        // Sending output layer
-        char* myOutputWeights = (char*) myNetwork.get_OutputWeights();
-        for (uint16_t i = 0; i < (HiddenNodes + 1) * OutputNodes; ++i) {
-          Serial.write(myOutputWeights + i * sizeof(float), sizeof(float));
-        }
-
-        /*****
-           Receiving model
-         *****/
-        // Receiving hidden layer
-        for (uint16_t i = 0; i < (InputNodes + 1) * HiddenNodes; ++i) {
-          //Serial.write('n');
-          while (Serial.available() < 4) {}
-          for (int n = 0; n < 4; n++) {
-            myHiddenWeights[i * 4 + n] = Serial.read();
-          }
-        }
-
-        // Receiving output layer
-        for (uint16_t i = 0; i < (HiddenNodes + 1) * OutputNodes; ++i) {
-          //Serial.write('n');
-          while (Serial.available() < 4) {}
-          for (int n = 0; n < 4; n++) {
-            myOutputWeights[i * 4 + n] = Serial.read();
-          }
+      /*****
+         Receiving model
+       *****/
+      // Receiving hidden layer
+      for (uint16_t i = 0; i < (InputNodes + 1) * HiddenNodes; ++i) {
+        //Serial.write('n');
+        while (Serial.available() < 4) {}
+        for (int n = 0; n < 4; n++) {
+          myHiddenWeights[i * 4 + n] = Serial.read();
         }
       }
 
-      digitalWrite(LED_BUILTIN, LOW);    // OFF
-    } else if (read == 't') { // Train with a sample
+      // Receiving output layer
+      for (uint16_t i = 0; i < (HiddenNodes + 1) * OutputNodes; ++i) {
+        //Serial.write('n');
+        while (Serial.available() < 4) {}
+        for (int n = 0; n < 4; n++) {
+          myOutputWeights[i * 4 + n] = Serial.read();
+        }
+      }
+    }
+
+    digitalWrite(LED_BUILTIN, LOW);    // OFF
+  } else if (read == 't') { // Train with a sample
+    Serial.println("ok");
+
+    while (Serial.available() < 1) {}
+    uint8_t num_button = Serial.read();
+    Serial.print("Button "); Serial.println(num_button);
+
+    while (Serial.available() < 1) {}
+    bool only_forward = Serial.read() == 1;
+    Serial.print("Only forward "); Serial.println(only_forward);
+
+    /*byte ref[2];
+    for (int i = 0; i < EI_CLASSIFIER_RAW_SAMPLE_COUNT; i++) {
+      while (Serial.available() < 2) {}
+      Serial.readBytes(ref, 2);
+      inference.buffer[i] = 0;
+      inference.buffer[i] = (ref[1] << 8) | ref[0];
+    }*/
+    byte ref[2];
+    for (int i = 0; i < EI_CLASSIFIER_RAW_SAMPLE_COUNT; i++) {
+      while (Serial.available() < 2) {}
+      Serial.readBytes(ref, 2);
+      shared_ptr->audio_input_buffer[i] = 0;
+      shared_ptr->audio_input_buffer[i] = (ref[1] << 8) | ref[0];
       Serial.println("ok");
-
-      while (Serial.available() < 1) {}
-      uint8_t num_button = Serial.read();
-      Serial.print("Button "); Serial.println(num_button);
-
-      while (Serial.available() < 1) {}
-      bool only_forward = Serial.read() == 1;
-      Serial.print("Only forward "); Serial.println(only_forward);
-
-      byte ref[2];
-      for (int i = 0; i < EI_CLASSIFIER_RAW_SAMPLE_COUNT; i++) {
-        while (Serial.available() < 2) {}
-        Serial.readBytes(ref, 2);
-        inference.buffer[i] = 0;
-        inference.buffer[i] = (ref[1] << 8) | ref[0];
-      }
-      Serial.print("Sample received for button ");
-      Serial.println(num_button);
-      train(num_button, only_forward);
     }
+    Serial.print("Sample received for button ");
+    Serial.println(num_button);
+    train(num_button, only_forward);
   }
 }
 
@@ -211,24 +201,20 @@ float readFloat() {
   return *(float *)&res;
 }
 
+/**
+ * Obtains features from the audio stored in the shared_ptr->audio_input_buffer (see get_input_data)
+ */
 void train(int nb, bool only_forward) {
   signal_t signal;
   signal.total_length = EI_CLASSIFIER_RAW_SAMPLE_COUNT;
-  signal.get_data = &microphone_audio_signal_get_data;
+  signal.get_data = &get_input_data;
   ei::matrix_t features_matrix(1, EI_CLASSIFIER_NN_INPUT_FRAME_SIZE);
-
-  // for(int i = 0; i < EI_CLASSIFIER_RAW_SAMPLE_COUNT; i++) {
-  //     Serial.print(inference.buffer[i]);
-  //     Serial.print(",");
-  // }
-  // Serial.println();
 
   EI_IMPULSE_ERROR r = get_one_second_features(&signal, &features_matrix, debug_nn);
   if (r != EI_IMPULSE_OK) {
     ei_printf("ERR: Failed to get features (%d)\n", r);
     return;
   }
-
 
   float myTarget[3] = {0};
   myTarget[nb - 1] = 1.f; // button 1 -> {1,0,0};  button 2 -> {0,1,0};  button 3 -> {0,0,1}
@@ -250,11 +236,6 @@ void train(int nb, bool only_forward) {
 
   float* myOutput = myNetwork.get_output();
 
-  //uint8_t num_button_output = 0;
-  //float max_output = 0.f;
-  // Serial.print("Inference result: ");
-
-
   // Info to plot & graph!
   Serial.println("graph");
 
@@ -262,9 +243,6 @@ void train(int nb, bool only_forward) {
   for (size_t i = 0; i < 3; i++) {
     ei_printf_float(myOutput[i]);
     Serial.print(" ");
-    //    if (myOutput[i] > max_output && myOutput[i] > threshold) {
-    //        num_button_output = i + 1;
-    //    }
   }
   Serial.print("\n");
 
@@ -294,30 +272,11 @@ void ei_printf(const char *format, ...) {
   }
 }
 
-
-
-
-static bool microphone_setup(uint32_t n_samples) {
-  inference.buf_count  = 0;
-  inference.n_samples  = n_samples;
-  inference.buf_ready  = 0;
-
-  return true;
-}
-
-
-static bool microphone_inference_record(void) {
-  inference.buf_ready = 0;
-  inference.buf_count = 0;
-  while (inference.buf_ready == 0) {
-    delay(10);
-  }
-  return true;
-}
-
-
-static int microphone_audio_signal_get_data(size_t offset, size_t length, float *out_ptr) {
-  numpy::int16_to_float(&inference.buffer[offset], out_ptr, length);
+// I don't like this cast to non-volatile...
+static int get_input_data(size_t offset, size_t length, float *out_ptr) {
+  numpy::int16_to_float((const int16_t*)&shared_ptr->audio_input_buffer[offset], out_ptr, length);
   return 0;
 }
+
+
 #endif
