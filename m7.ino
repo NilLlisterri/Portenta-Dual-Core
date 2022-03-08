@@ -1,122 +1,29 @@
 #ifdef CORE_CM7
 
-#include "neural_network.h"
+#include <PDM.h>
 
+static signed short sampleBuffer[2048]; // PDM sample buffer
 
-static bool debug_nn = false; // Set this to true to see e.g. features generated from the raw signal
+/** Structure to manage audio capture */
+typedef struct {
+  uint8_t buf_ready;
+  uint32_t buf_count;
+  uint32_t n_samples;
+} recording_t;
 
-
-const uint8_t button_1 = 2;
-const uint8_t button_2 = 3;
-const uint8_t button_3 = 4;
-const uint8_t button_4 = 5;
-//uint8_t num_button = 0; // 0 represents none
-
-
-// Defaults: 0.3, 0.9
-static NeuralNetwork myNetwork;
-const float threshold = 0.6;
-
-uint16_t num_epochs = 0;
+static recording_t recording = {0, 0, EI_CLASSIFIER_RAW_SAMPLE_COUNT};
 
 void setup_m7() {
-  Serial.println("Setup M7 started");
-  RPC.bind("train", train);
-
-  pinMode(button_1, INPUT);
-  pinMode(button_2, INPUT);
-  pinMode(button_3, INPUT);
-  pinMode(button_4, INPUT);
-  
-  pinMode(LEDR, OUTPUT);
-  pinMode(LEDG, OUTPUT);
-  pinMode(LEDB, OUTPUT);
-  digitalWrite(LEDR, HIGH);
-  digitalWrite(LEDG, HIGH);
-  digitalWrite(LEDB, HIGH);
-
-  digitalWrite(LED_BUILTIN, HIGH);
-
-  // init_network_model();
-  digitalWrite(LED_BUILTIN, LOW);
-
-  num_epochs = 0;
+  PDM.onReceive(on_microphone_receive);
 }
 
 void loop_m7() {
-  digitalWrite(LEDR, HIGH);           // OFF
-  digitalWrite(LEDG, HIGH);           // OFF
-  digitalWrite(LEDB, HIGH);           // OFF
-  digitalWrite(LED_BUILTIN, HIGH);    // ON
+  print_m4_messages();
 
-  Serial.println("Looping M7");
-  delay(200);
-  // Print the m4 messages
-  String buffer = "";
-  while (RPC.available()) {
-    buffer += (char)RPC.read(); // Fill the buffer with characters
-  }
-  if (buffer.length() > 0) {
-    Serial.print(buffer);
-  }
-
-  uint8_t num_button = 0;
-
-  bool only_forward = false;
+  digitalWrite(LED_BUILTIN, HIGH);
 
   int read = Serial.read();
-  if (read == '>') { // s -> FEDERATED LEARNING
-    /***********************
-       Federate Learning
-     ***********************/
-    Serial.write('<');
-    digitalWrite(LED_BUILTIN, HIGH);    // ON
-    delay(1000);
-    if (Serial.read() == 's') {
-      Serial.println("start");
-      Serial.println(num_epochs);
-      num_epochs = 0;
-
-      /*******
-         Sending model
-       *******/
-
-      // Sending hidden layer
-      char* myHiddenWeights = (char*) myNetwork.get_HiddenWeights();
-      for (uint16_t i = 0; i < (InputNodes + 1) * HiddenNodes; ++i) {
-        Serial.write(myHiddenWeights + i * sizeof(float), sizeof(float));
-      }
-
-      // Sending output layer
-      char* myOutputWeights = (char*) myNetwork.get_OutputWeights();
-      for (uint16_t i = 0; i < (HiddenNodes + 1) * OutputNodes; ++i) {
-        Serial.write(myOutputWeights + i * sizeof(float), sizeof(float));
-      }
-
-      /*****
-         Receiving model
-       *****/
-      // Receiving hidden layer
-      for (uint16_t i = 0; i < (InputNodes + 1) * HiddenNodes; ++i) {
-        //Serial.write('n');
-        while (Serial.available() < 4) {}
-        for (int n = 0; n < 4; n++) {
-          myHiddenWeights[i * 4 + n] = Serial.read();
-        }
-      }
-
-      // Receiving output layer
-      for (uint16_t i = 0; i < (HiddenNodes + 1) * OutputNodes; ++i) {
-        //Serial.write('n');
-        while (Serial.available() < 4) {}
-        for (int n = 0; n < 4; n++) {
-          myOutputWeights[i * 4 + n] = Serial.read();
-        }
-      }
-    }
-
-    digitalWrite(LED_BUILTIN, LOW);    // OFF
-  } else if (read == 't') { // Train with a sample
+  if (read == 't') {
     Serial.println("ok");
 
     while (Serial.available() < 1) {}
@@ -127,156 +34,88 @@ void loop_m7() {
     bool only_forward = Serial.read() == 1;
     Serial.print("Only forward "); Serial.println(only_forward);
 
-    /*byte ref[2];
-    for (int i = 0; i < EI_CLASSIFIER_RAW_SAMPLE_COUNT; i++) {
-      while (Serial.available() < 2) {}
-      Serial.readBytes(ref, 2);
-      inference.buffer[i] = 0;
-      inference.buffer[i] = (ref[1] << 8) | ref[0];
-    }*/
     byte ref[2];
     for (int i = 0; i < EI_CLASSIFIER_RAW_SAMPLE_COUNT; i++) {
       while (Serial.available() < 2) {}
       Serial.readBytes(ref, 2);
       shared_ptr->audio_input_buffer[i] = 0;
       shared_ptr->audio_input_buffer[i] = (ref[1] << 8) | ref[0];
-      Serial.println("ok");
     }
     Serial.print("Sample received for button ");
     Serial.println(num_button);
-    train(num_button, only_forward);
-  }
-}
-
-
-
-
-void init_network_model() {
-  char startChar;
-  do {
-    startChar = Serial.read();
-    Serial.println("Waiting for new model...");
     delay(100);
-  } while (startChar != 's'); // s -> START
 
-  Serial.println("start");
-  float learningRate = readFloat();
-  float momentum = readFloat();
-
-  while (Serial.available() < 1) {}
-  int dropoutRate = Serial.read();
-
-  float seed = readFloat();
-  srand(seed);
-
-  myNetwork.initialize(learningRate, momentum, dropoutRate);
-
-  char* myHiddenWeights = (char*) myNetwork.get_HiddenWeights();
-  for (uint16_t i = 0; i < (InputNodes + 1) * HiddenNodes; ++i) {
-    //Serial.write('n');
-    while (Serial.available() < 4) {}
-    for (int n = 0; n < 4; n++) {
-      myHiddenWeights[i * 4] = Serial.read();
-    }
+    // This delay is required, otherwise the program will randomly crash at one of the RPC calls (https://github.com/arduino/ArduinoCore-mbed/issues/238).
+    // The grater the delay, the more reliable. 100ms works "well".
+    RPC.call("train", num_button, only_forward);
+  } else if (read == 'r') {
+    Serial.println("Started recording");
+    record();
+    Serial.println("Recording done, training");
+    RPC.call("train", 1, false);
   }
 
-  char* myOutputWeights = (char*) myNetwork.get_OutputWeights();
-  for (uint16_t i = 0; i < (HiddenNodes + 1) * OutputNodes; ++i) {
-    //Serial.write('n');
-    while (Serial.available() < 4) {}
-    for (int n = 0; n < 4; n++) {
-      myOutputWeights[i * 4 + n] = Serial.read();
-    }
-  }
-
-  Serial.println("Received new model.");
+  for (int i = 0; i < 100; i++) {
+    delay(9000);
+    record();
+    delay(100);
+    RPC.call("train", 1, false);
+  } 
 }
 
-float readFloat() {
-  byte res[4];
-  while (Serial.available() < 4) {}
-  for (int n = 0; n < 4; n++) {
-    res[n] = Serial.read();
+// Check the RPC buffer and print it to serial
+void print_m4_messages() {
+  String buffer = "";
+  while (RPC.available()) {
+    buffer += (char)RPC.read(); // Fill the buffer with characters
   }
-  return *(float *)&res;
+  if (buffer.length() > 0) {
+    Serial.print(buffer);
+  }
 }
 
-/**
- * Obtains features from the audio stored in the shared_ptr->audio_input_buffer (see get_input_data)
- */
-void train(int nb, bool only_forward) {
-  signal_t signal;
-  signal.total_length = EI_CLASSIFIER_RAW_SAMPLE_COUNT;
-  signal.get_data = &get_input_data;
-  ei::matrix_t features_matrix(1, EI_CLASSIFIER_NN_INPUT_FRAME_SIZE);
-
-  EI_IMPULSE_ERROR r = get_one_second_features(&signal, &features_matrix, debug_nn);
-  if (r != EI_IMPULSE_OK) {
-    ei_printf("ERR: Failed to get features (%d)\n", r);
+void record() {
+  bool m = microphone_record();
+  if (!m) {
+    Serial.println("ERR: Failed to record audio");
     return;
   }
-
-  float myTarget[3] = {0};
-  myTarget[nb - 1] = 1.f; // button 1 -> {1,0,0};  button 2 -> {0,1,0};  button 3 -> {0,0,1}
-
-  // FORWARD
-  float forward_error = myNetwork.forward(features_matrix.buffer, myTarget);
-
-  float backward_error = 0;
-  if (!only_forward) {
-    // BACKWARD
-    backward_error = myNetwork.backward(features_matrix.buffer, myTarget);
-    ++num_epochs;
-  }
-
-  float error = forward_error;
-  if (!only_forward) {
-    // error = backward_error;
-  }
-
-  float* myOutput = myNetwork.get_output();
-
-  // Info to plot & graph!
-  Serial.println("graph");
-
-  // Print outputs
-  for (size_t i = 0; i < 3; i++) {
-    ei_printf_float(myOutput[i]);
-    Serial.print(" ");
-  }
-  Serial.print("\n");
-
-  // Print error
-  ei_printf_float(error);
-  Serial.print("\n");
-
-  Serial.println(num_epochs, DEC);
-
-  char* myError = (char*) &error;
-  Serial.write(myError, sizeof(float));
-
-  Serial.println(nb, DEC);
+  Serial.println("Recording done");
 }
 
+static bool microphone_record() {
+  recording.buf_ready = 0;
+  recording.buf_count = 0;
+  digitalWrite(LEDR, LOW);
+  if (!PDM.begin(1, EI_CLASSIFIER_FREQUENCY)) {
+    Serial.println("Failed to start PDM!");
+    return false;
+  }
+  while (recording.buf_ready == 0) {
+    delay(10);
+  }
+  PDM.end();
+  digitalWrite(LEDR, HIGH);
+  return true;
+}
 
-void ei_printf(const char *format, ...) {
-  static char print_buf[1024] = { 0 };
+static void on_microphone_receive() {
+  int bytesAvailable = PDM.available();
 
-  va_list args;
-  va_start(args, format);
-  int r = vsnprintf(print_buf, sizeof(print_buf), format, args);
-  va_end(args);
+  // read into the sample buffer
+  int bytesRead = PDM.read((char *)&sampleBuffer[0], bytesAvailable);
 
-  if (r > 0) {
-    Serial.write(print_buf);
+  if (recording.buf_ready == 0) {
+    for (int i = 0; i < bytesRead >> 1; i++) {
+      shared_ptr->audio_input_buffer[recording.buf_count++] = sampleBuffer[i];
+
+      if (recording.buf_count >= recording.n_samples) {
+        recording.buf_count = 0;
+        recording.buf_ready = 1;
+        break;
+      }
+    }
   }
 }
-
-// I don't like this cast to non-volatile...
-static int get_input_data(size_t offset, size_t length, float *out_ptr) {
-  numpy::int16_to_float((const int16_t*)&shared_ptr->audio_input_buffer[offset], out_ptr, length);
-  return 0;
-}
-
 
 #endif

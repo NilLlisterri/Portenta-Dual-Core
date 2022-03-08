@@ -31,7 +31,6 @@ class NeuralNetwork {
     float* get_OutputWeights();
 
     float get_error();
-    // float asd[500] = {};
 
   private:
 

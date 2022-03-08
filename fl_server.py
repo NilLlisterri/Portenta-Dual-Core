@@ -16,8 +16,8 @@ seed = 4321
 random.seed(seed)
 np.random.seed(seed)
 
-samples_per_device = 30 # Amount of samples of each word to send to each device
-batch_size = 30 # Must be even, hsa to be split into 2 types of samples
+samples_per_device = 100 # Amount of samples of each word to send to each device
+batch_size = 100 # Must be even, hsa to be split into 2 types of samples
 experiment = None # 'iid', 'no-iid', 'train-test', None
 use_threads = True
 test_samples_amount = 40
@@ -47,20 +47,6 @@ repaint_graph = True
 
 random.shuffle(montserrat_files)
 random.shuffle(pedraforca_files)
-
-# mountains = []
-# for index in range(0, len(montserrat_files), 5):
-#     mountains.append(montserrat_files[index])
-#     mountains.append(montserrat_files[index+1])
-#     mountains.append(montserrat_files[index+2])
-#     mountains.append(montserrat_files[index+3])
-#     mountains.append(montserrat_files[index+4])
-
-#     mountains.append(pedraforca_files[index])
-#     mountains.append(pedraforca_files[index+1])
-#     mountains.append(pedraforca_files[index+2])
-#     mountains.append(pedraforca_files[index+3])
-#     mountains.append(pedraforca_files[index+4])
 
 mountains = list(sum(zip(montserrat_files, pedraforca_files), ()))
 
@@ -114,7 +100,7 @@ def sendSamplesIID(device, deviceIndex, batch_size, batch_index, errors_queue, s
     start = (deviceIndex*samples_per_device) + (batch_index * batch_size)
     end = (deviceIndex*samples_per_device) + (batch_index * batch_size) + batch_size
 
-    # print(f"[{device.port}] Sending samples from {start} to {end}")
+    print(f"[{device.port}] Sending samples from {start} to {end}")
     files = mountains[start:end]
     for i, filename in enumerate(files):
         if (filename.startswith("montserrat")):
@@ -123,7 +109,7 @@ def sendSamplesIID(device, deviceIndex, batch_size, batch_index, errors_queue, s
             num_button = 2
         else:
             exit("Unknown button for sample")
-        # print(f"[{device.port}] Sending sample {filename} ({i}/{len(files)}): Button {num_button}")
+        print(f"[{device.port}] Sending sample {filename} ({i}/{len(files)}): Button {num_button}")
         error, success = sendSample(device, 'datasets/mountains/'+filename, num_button, deviceIndex)
         successes_queue.put(success)
         errors_queue.put(error)
@@ -172,18 +158,16 @@ def sendSample(device, samplePath, num_button, deviceIndex, only_forward = False
 
         for i, value in enumerate(data['payload']['values']):
             device.write(struct.pack('h', value))
-            print(i)
-            print(device.readline())
+            #print(f"{i}: {device.readline()})
 
         conf = device.readline().decode()
-        # print(f"[{device.port}] Sample received confirmation:", conf)
+        print(f"[{device.port}] Sample received confirmation:", conf)
+        
+        graphCommand = device.readline().decode() # Accept 'graph' command
+        print(f"[{device.port}] Graph command confirmation:", graphCommand)
 
-        # print(f"Fordward millis received: ", device.readline().decode())
-        # print(f"Backward millis received: ", device.readline().decode())
-        device.readline().decode() # Accept 'graph' command
         error, num_button_predicted = read_graph(device, deviceIndex)
-        #if (error > 0.28):
-        #    print(f"[{device.port}] Sample {samplePath} generated an error of {error}")
+        print(f"[{device.port}] Error received: {error}, button predicred: {num_button_predicted}")
         print(f'[{device.port}] Sample sent in: {(time.time()*1000)-ini_time} milliseconds)')
     return error, num_button == num_button_predicted
 
@@ -238,18 +222,17 @@ def sendTestAllDevices(classes = 2):
 def read_graph(device, deviceIndex):
     global repaint_graph
 
-    outputs = device.readline().decode().split()
-    error = device.readline().decode()
-
-    ne = device.readline()[:-2]
-    n_epooch = int(ne)
-
-    n_error = device.read(4)
-    [n_error] = struct.unpack('f', n_error)
-    nb = device.readline()[:-2]
-    graph.append([n_epooch, n_error, deviceIndex])
+    outputs = device.readline().decode()[:-2].split("|")
+    print(f"[{device.port}] Outputs: {outputs}")
+    error = float(device.readline().decode()[:-2])
+    print(f"[{device.port}] Error: {error}")
+    n_epooch = int(device.readline()[:-2])
+    print(f"[{device.port}] Epoch: {n_epooch}")
+    num_button = device.readline()[:-2]
+    print(f"[{device.port}] Num button: {num_button}")
+    graph.append([n_epooch, error, deviceIndex])
     repaint_graph = True
-    return n_error, outputs.index(max(outputs)) + 1
+    return error, outputs.index(max(outputs)) + 1
 
 def read_number(msg):
     while True:
@@ -262,9 +245,9 @@ def read_number(msg):
 def read_port(msg):
     while True:
         try:
-            port = input(msg)
-            #port = "COM3";
-            return serial.Serial(port, 115200)
+            #port = input(msg)
+            port = "COM3"
+            return serial.Serial(port)
         except:
             print(f"ERROR: Wrong port connection ({port})")
 
@@ -304,7 +287,7 @@ def listenDevice(device, deviceIndex):
             print("Paused...")
             time.sleep(0.1)
 
-        d.timeout = None
+        device.timeout = None
         msg = device.readline().decode()
         if (len(msg) > 0):
             print(f'({device.port}):', msg, end="")
@@ -317,8 +300,8 @@ def listenDevice(device, deviceIndex):
 
 def getDevices():
     global devices, devices_connected
-    num_devices = read_number("Number of devices: ")
-
+    #num_devices = read_number("Number of devices: ")
+    num_devices = 1
     available_ports = comports()
     print("Available ports:")
     for available_port in available_ports:
@@ -449,18 +432,18 @@ def startFL():
 getDevices()
 
 # Send the blank model to all the devices
-threads = []
-for i, d in enumerate(devices):
-    if use_threads:
-        thread = threading.Thread(target=init_network, args=(hidden_layer, output_layer, d, i))
-        thread.daemon = True
-        thread.start()
-        threads.append(thread)
-    else:
-        init_network(hidden_layer, output_layer, d, i)
-for thread in threads: thread.join() # Wait for all the threads to end
+# threads = []
+# for i, d in enumerate(devices):
+#     if use_threads:
+#         thread = threading.Thread(target=init_network, args=(hidden_layer, output_layer, d, i))
+#         thread.daemon = True
+#         thread.start()
+#         threads.append(thread)
+#     else:
+#         init_network(hidden_layer, output_layer, d, i)
+# for thread in threads: thread.join() # Wait for all the threads to end
 
-print(f"Initial model sent to all devices")
+# print(f"Initial model sent to all devices")
 
 if experiment != None:
     # Train the device
@@ -509,8 +492,9 @@ if experiment != None:
 
 else:
     # Listen their updates
-    for i, d in enumerate(devices):
-        thread = threading.Thread(target=listenDevice, args=(d, i))
+    for i, device in enumerate(devices):
+        # device.write(b'r')
+        thread = threading.Thread(target=listenDevice, args=(device, i))
         thread.daemon = True
         thread.start()
 
@@ -537,7 +521,7 @@ if experiment != None:
     plt.savefig(figname, format='png')
     print(f"Generated {figname}")
 
-    exit()
+    #exit()
 
 while True:
     #if (repaint_graph): 
