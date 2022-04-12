@@ -16,15 +16,13 @@ void NeuralNetwork::initWeights() {
     for(int i = 0 ; i < HiddenNodes ; i++ ) {    
         for(int j = 0 ; j <= InputNodes ; j++ ) { 
             ChangeHiddenWeights[j*HiddenNodes + i] = 0.0 ;
-            float Rando = float(random(100))/100;
-            HiddenWeights[j*HiddenNodes + i] = 2.0 * ( Rando - 0.5 ) * InitialWeightMax ;
+            HiddenWeights[j*HiddenNodes + i] = random(InitialWeightMin, InitialWeightMax);
         }
     }
     for(int i = 0 ; i < OutputNodes ; i ++ ) {    
         for(int j = 0 ; j <= HiddenNodes ; j++ ) {
-            ChangeOutputWeights[j*OutputNodes + i] = 0.0 ;  
-            float Rando = float(random(100))/100;        
-            OutputWeights[j*OutputNodes + i] = 2.0 * ( Rando - 0.5 ) * InitialWeightMax ;
+            ChangeOutputWeights[j*OutputNodes + i] = 0.0 ;       
+            OutputWeights[j*OutputNodes + i] = random(InitialWeightMin, InitialWeightMax);
         }
     }
 }
