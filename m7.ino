@@ -162,7 +162,7 @@ void loop_m7() {
 
 
 void init_network_model() {
-  char startChar;
+  /*char startChar;
   do {
     startChar = Serial.read();
     Serial.println("Waiting for new model...");
@@ -181,25 +181,8 @@ void init_network_model() {
 
   myNetwork.initialize(learningRate, momentum, dropoutRate);
 
-  char* myHiddenWeights = (char*) myNetwork.get_HiddenWeights();
-  for (uint16_t i = 0; i < (InputNodes + 1) * HiddenNodes; ++i) {
-    //Serial.write('n');
-    while (Serial.available() < 4) {}
-    for (int n = 0; n < 4; n++) {
-      myHiddenWeights[i * 4] = Serial.read();
-    }
-  }
-
-  char* myOutputWeights = (char*) myNetwork.get_OutputWeights();
-  for (uint16_t i = 0; i < (HiddenNodes + 1) * OutputNodes; ++i) {
-    //Serial.write('n');
-    while (Serial.available() < 4) {}
-    for (int n = 0; n < 4; n++) {
-      myOutputWeights[i * 4 + n] = Serial.read();
-    }
-  }
-
-  Serial.println("Received new model.");
+  Serial.println("Received new model.");*/
+  myNetwork.initialize(0.6, 0.9, 0);
 }
 
 float readFloat() {
@@ -212,23 +195,24 @@ float readFloat() {
 }
 
 void train(int nb, bool only_forward) {
+
+  Serial.println("LOG_START");
+  int* myHiddenWeights = myNetwork.get_HiddenWeights();
+  for (int i = 0; i < (InputNodes+1) * HiddenNodes; ++i) {
+    // Serial.print("Weight "); Serial.print(i); Serial.print(": "); Serial.println(myHiddenWeights[i]);
+  }
+  
+  
   signal_t signal;
   signal.total_length = EI_CLASSIFIER_RAW_SAMPLE_COUNT;
   signal.get_data = &microphone_audio_signal_get_data;
   ei::matrix_t features_matrix(1, EI_CLASSIFIER_NN_INPUT_FRAME_SIZE);
-
-  // for(int i = 0; i < EI_CLASSIFIER_RAW_SAMPLE_COUNT; i++) {
-  //     Serial.print(inference.buffer[i]);
-  //     Serial.print(",");
-  // }
-  // Serial.println();
 
   EI_IMPULSE_ERROR r = get_one_second_features(&signal, &features_matrix, debug_nn);
   if (r != EI_IMPULSE_OK) {
     ei_printf("ERR: Failed to get features (%d)\n", r);
     return;
   }
-
 
   float myTarget[3] = {0};
   myTarget[nb - 1] = 1.f; // button 1 -> {1,0,0};  button 2 -> {0,1,0};  button 3 -> {0,0,1}
@@ -254,6 +238,7 @@ void train(int nb, bool only_forward) {
   //float max_output = 0.f;
   // Serial.print("Inference result: ");
 
+  Serial.println("LOG_END");
 
   // Info to plot & graph!
   Serial.println("graph");
@@ -262,9 +247,6 @@ void train(int nb, bool only_forward) {
   for (size_t i = 0; i < 3; i++) {
     ei_printf_float(myOutput[i]);
     Serial.print(" ");
-    //    if (myOutput[i] > max_output && myOutput[i] > threshold) {
-    //        num_button_output = i + 1;
-    //    }
   }
   Serial.print("\n");
 

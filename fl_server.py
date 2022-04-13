@@ -174,7 +174,18 @@ def sendSample(device, samplePath, num_button, deviceIndex, only_forward = False
             device.write(struct.pack('h', value))
 
         conf = device.readline().decode()
-        # print(f"[{device.port}] Sample received confirmation:", conf)
+        print(f"[{device.port}] Sample received confirmation:", conf)
+
+        while True: 
+            input = device.readline()
+            print(f"[{device.port}]", input)
+        
+            if input == b'LOG_END\r\n':
+                break
+
+
+        # while True:
+        #     print(f"[{device.port}]", device.readline().decode())
 
         # print(f"Fordward millis received: ", device.readline().decode())
         # print(f"Backward millis received: ", device.readline().decode())
@@ -239,6 +250,9 @@ def read_graph(device, deviceIndex):
     outputs = device.readline().decode().split()
     error = device.readline().decode()
 
+    print(f"Outputs: ", outputs)
+    print(f"Error received: ", error)
+
     ne = device.readline()[:-2]
     n_epooch = int(ne)
 
@@ -281,7 +295,7 @@ def plot_graph():
 
         plt.legend()
         plt.xlim(left=0)
-        plt.ylim(bottom=0, top=0.7)
+        # plt.ylim(bottom=0, top=0.7)
         plt.ylabel('Loss') # or Error
         plt.xlabel('Epoch')
         # plt.axes().set_ylim([0, 0.6])
@@ -447,18 +461,18 @@ def startFL():
 getDevices()
 
 # Send the blank model to all the devices
-threads = []
-for i, d in enumerate(devices):
-    if use_threads:
-        thread = threading.Thread(target=init_network, args=(hidden_layer, output_layer, d, i))
-        thread.daemon = True
-        thread.start()
-        threads.append(thread)
-    else:
-        init_network(hidden_layer, output_layer, d, i)
-for thread in threads: thread.join() # Wait for all the threads to end
+# threads = []
+# for i, d in enumerate(devices):
+#     if use_threads:
+#         thread = threading.Thread(target=init_network, args=(hidden_layer, output_layer, d, i))
+#         thread.daemon = True
+#         thread.start()
+#         threads.append(thread)
+#     else:
+#         init_network(hidden_layer, output_layer, d, i)
+# for thread in threads: thread.join() # Wait for all the threads to end
 
-print(f"Initial model sent to all devices")
+# print(f"Initial model sent to all devices")
 
 if experiment != None:
     # Train the device

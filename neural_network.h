@@ -10,7 +10,8 @@ static const int PatternCount = 3;
 static const int InputNodes = 650;
 static const int HiddenNodes = 25;
 static const int OutputNodes = 3;
-static const float InitialWeightMax = 0.5;
+static const float InitialWeightMax = 0.05;
+static const float InitialWeightMin = -0.05;
 
 class NeuralNetwork {
     public:
@@ -24,8 +25,8 @@ class NeuralNetwork {
 
         float* get_output();
 
-        float* get_HiddenWeights();
-        float* get_OutputWeights();
+        int* get_HiddenWeights();
+        int* get_OutputWeights();
 
         float get_error();
         // float asd[500] = {};
@@ -34,15 +35,15 @@ class NeuralNetwork {
 
         float Hidden[HiddenNodes] = {};
         float Output[OutputNodes] = {};
-        float HiddenWeights[(InputNodes+1) * HiddenNodes] = {};
-        float OutputWeights[(HiddenNodes+1) * OutputNodes] = {};
+        int HiddenWeights[(InputNodes+1) * HiddenNodes] = {};
+        int OutputWeights[(HiddenNodes+1) * OutputNodes] = {};
         float HiddenDelta[HiddenNodes] = {};
         float OutputDelta[OutputNodes] = {};
         float ChangeHiddenWeights[(InputNodes+1) * HiddenNodes] = {};
         float ChangeOutputWeights[(HiddenNodes+1) * OutputNodes] = {};
 
         float Error;
-        float LearningRate = 0.3;
+        float LearningRate = 0.6;
         float Momentum = 0.9;
         // From 0 to 100, the percentage of input features that will be set to 0
         int DropoutRate = 0;
