@@ -8,7 +8,7 @@
 
 static const int PatternCount = 3;
 static const int InputNodes = 650;
-static const int HiddenNodes = 25;
+static const int HiddenNodes = 40;
 static const int OutputNodes = 3;
 static const float InitialWeightMax = 0.05;
 static const float InitialWeightMin = -0.05;
@@ -39,8 +39,8 @@ class NeuralNetwork {
         int OutputWeights[(HiddenNodes+1) * OutputNodes] = {};
         float HiddenDelta[HiddenNodes] = {};
         float OutputDelta[OutputNodes] = {};
-        float ChangeHiddenWeights[(InputNodes+1) * HiddenNodes] = {};
-        float ChangeOutputWeights[(HiddenNodes+1) * OutputNodes] = {};
+        int ChangeHiddenWeights[(InputNodes+1) * HiddenNodes] = {};
+        int ChangeOutputWeights[(HiddenNodes+1) * OutputNodes] = {};
 
         float Error;
         float LearningRate = 0.6;

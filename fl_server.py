@@ -295,7 +295,7 @@ def plot_graph():
 
         plt.legend()
         plt.xlim(left=0)
-        # plt.ylim(bottom=0, top=0.7)
+        plt.ylim(bottom=0, top=0.7)
         plt.ylabel('Loss') # or Error
         plt.xlabel('Epoch')
         # plt.axes().set_ylim([0, 0.6])
