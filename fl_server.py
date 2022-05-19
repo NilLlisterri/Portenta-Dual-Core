@@ -503,7 +503,7 @@ if experiment != None:
         #sendTestAllDevices(3)
 
         # fl_ini_time = time.time()
-        startFL()
+        # startFL()
         # print(f'FL time: {time.time() - fl_ini_time} seconds)')
 
     #print(f"Training error: {sum(errors_queue.queue)/len(errors_queue.queue)}")

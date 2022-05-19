@@ -8,10 +8,13 @@
 
 static const int PatternCount = 3;
 static const int InputNodes = 650;
-static const int HiddenNodes = 40;
+static const int HiddenNodes = 15;
 static const int OutputNodes = 3;
 static const float InitialWeightMax = 0.05;
 static const float InitialWeightMin = -0.05;
+
+using weightType = int8_t; // int8_t
+static const float weightFactor = 100.f;
 
 class NeuralNetwork {
     public:
@@ -25,22 +28,24 @@ class NeuralNetwork {
 
         float* get_output();
 
-        int* get_HiddenWeights();
-        int* get_OutputWeights();
+        weightType* get_HiddenWeights();
+        weightType* get_OutputWeights();
 
         float get_error();
-        // float asd[500] = {};
+
+        float getWeight(weightType val);
+        weightType setWeight(float val);
         
     private:
 
         float Hidden[HiddenNodes] = {};
         float Output[OutputNodes] = {};
-        int HiddenWeights[(InputNodes+1) * HiddenNodes] = {};
-        int OutputWeights[(HiddenNodes+1) * OutputNodes] = {};
+        weightType HiddenWeights[(InputNodes+1) * HiddenNodes] = {};
+        weightType OutputWeights[(HiddenNodes+1) * OutputNodes] = {};
         float HiddenDelta[HiddenNodes] = {};
         float OutputDelta[OutputNodes] = {};
-        int ChangeHiddenWeights[(InputNodes+1) * HiddenNodes] = {};
-        int ChangeOutputWeights[(HiddenNodes+1) * OutputNodes] = {};
+        weightType ChangeHiddenWeights[(InputNodes+1) * HiddenNodes] = {};
+        weightType ChangeOutputWeights[(HiddenNodes+1) * OutputNodes] = {};
 
         float Error;
         float LearningRate = 0.6;

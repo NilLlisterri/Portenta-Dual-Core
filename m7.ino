@@ -197,9 +197,9 @@ float readFloat() {
 void train(int nb, bool only_forward) {
 
   Serial.println("LOG_START");
-  int* myHiddenWeights = myNetwork.get_HiddenWeights();
-  for (int i = 0; i < (InputNodes+1) * HiddenNodes; ++i) {
-    // Serial.print("Weight "); Serial.print(i); Serial.print(": "); Serial.println(myHiddenWeights[i]);
+  weightType* myHiddenWeights = myNetwork.get_HiddenWeights();
+  for (int i = 0; i < (InputNodes+1) * HiddenNodes; i = i+300) {
+    Serial.print("Weight "); Serial.print(i); Serial.print(": "); Serial.println(myHiddenWeights[i]);
   }
   
   
