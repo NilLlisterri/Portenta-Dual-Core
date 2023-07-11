@@ -55,12 +55,12 @@ void loop_m7() {
     RPC.call("train", 1, false);
   }
 
-  for (int i = 0; i < 100; i++) {
+  /*for (int i = 0; i < 100; i++) {
     delay(9000);
     record();
     delay(100);
     RPC.call("train", 1, false);
-  } 
+  } */
 }
 
 // Check the RPC buffer and print it to serial
